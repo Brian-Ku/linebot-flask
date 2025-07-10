@@ -3,17 +3,20 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import os
+import openai
 
 app = Flask(__name__)
 
-# 從環境變數中讀取 LINE 機器人金鑰
+# 讀取環境變數
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# 設定 /callback 路由來處理 LINE 的 POST 請求
 @app.route("/callback", methods=["POST"])
 def callback():
+    # 取得簽名
     signature = request.headers.get("X-Line-Signature", "")
+    # 取得請求內容
     body = request.get_data(as_text=True)
 
     try:
@@ -21,13 +24,26 @@ def callback():
     except InvalidSignatureError:
         abort(400)
 
-    return "OK", 200  # 必須回傳 200 狀態碼，即使 events 為空陣列
+    return "OK", 200
 
-# 訊息事件觸發後的處理方式（你可以改成 GPT 回覆）
+# 處理文字訊息事件
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_text = event.message.text
-    reply_text = f"你說的是：{user_text}"  # 暫時用這句，稍後可以串接 GPT
+    user_message = event.message.text
+
+    # 呼叫 OpenAI Chat API
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # 或 gpt-4，如果你有授權
+            messages=[
+                {"role": "system", "content": "你是一位親切、有趣的 LINE 機器人，會用口語化方式回應問題。"},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        reply_text = response.choices[0].message.content.strip()
+    except Exception as e:
+        reply_text = "很抱歉，我暫時無法回應，請稍後再試 🙏"
+
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_text)
