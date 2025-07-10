@@ -42,7 +42,7 @@ def handle_message(event):
         )
         reply_text = response.choices[0].message.content.strip()
     except Exception as e:
-        reply_text = "很抱歉，我暫時無法回應，請稍後再試 🙏"
+        reply_text = f"錯誤訊息：{str(e)}"
 
     line_bot_api.reply_message(
         event.reply_token,
