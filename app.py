@@ -3,14 +3,16 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import os
-from openai import OpenAI  # ✅ 新版 OpenAI SDK
+import google.generativeai as genai  # ✅ Gemini SDK
 
 app = Flask(__name__)
 
-# 讀取環境變數
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # ✅ 建立 GPT 客戶端
+
+# ✅ 設定 Gemini API 金鑰
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-pro")
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -29,17 +31,10 @@ def handle_message(event):
     user_message = event.message.text
 
     try:
-        # ✅ 呼叫 GPT 模型（新版 SDK 寫法）
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # 或 gpt-4，看你有沒有授權
-            messages=[
-                {"role": "system", "content": "你是一位親切、有趣的 LINE 機器人"},
-                {"role": "user", "content": user_message}
-            ]
-        )
-        reply_text = response.choices[0].message.content.strip()
+        response = model.generate_content(user_message)
+        reply_text = response.text.strip()
     except Exception as e:
-        reply_text = f"錯誤訊息：{str(e)}"  # ✅ 可移除：除錯用
+        reply_text = f"錯誤訊息：{str(e)}"
 
     line_bot_api.reply_message(
         event.reply_token,
